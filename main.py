@@ -71,6 +71,7 @@ def main():
         datosRutas.build_netPath(netPath=server_route if (len(server_route.strip()) > 1) else None)
     else:
         datosRutas.build_netPath(hostname=server_name, netPath=server_route if (len(server_route.strip()) > 1) else None)
+        datosRutas.newBase = datosRutas.get_netPath()
         
     # Paso 1: obtener todas las rutas de empresas (solo lectura)
     empresas = tablas.extract_info(

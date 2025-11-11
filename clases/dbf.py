@@ -57,7 +57,6 @@ class DBFManager:
 
                             original = (rec[col] or "").strip()
                             updated = path_manager.change_path(original, new_base=path_manager.newBase)
-
                             before[col] = original
                             after[col] = updated
 
@@ -92,7 +91,7 @@ class DBFManager:
         try:
             with dbf.Table(str(table_path)) as t2:
                 t2.open()
-                
+                # leer primeros 3 registros o el índice que quieras verificar
                 for i, r in enumerate(t2):
                     if i >= 5: break
                     val = r[col] if col in r else None

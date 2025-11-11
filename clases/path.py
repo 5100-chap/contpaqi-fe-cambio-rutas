@@ -39,19 +39,26 @@ class PathManager:
     def change_path(self, old_path: str, new_base: str = None) -> str:
         old = self._normalize(old_path)
         if not old:
-            return old  # devolver "" si estaba vacío
-
-        target_base = self._normalize(new_base) if new_base is not None else self._normalize(self.newBase)
-
-        # Buscar la base declarada (Compacw\Empresas) en la ruta original
-        idx = old.lower().find(self.basePath.lower())
-        if idx == -1:
-            # Si no aparece, no tocamos la ruta
             return old
 
-        suffix = old[idx:]  # conservar exactamente desde basePath
-        # Siempre usar backslashes para DBF (DOS)
-        target_base = target_base.replace("/", "\\").rstrip("\\/")
-        suffix = suffix.replace("/", "\\").lstrip("\\/")
+        target_base = self._normalize(new_base) if new_base else self._normalize(self.newBase)
+        # Lista de patrones que consideras base
+        candidates = [
+            self.basePath.lower(),                          # "Compacw\Empresas"
+            self.__absPath.lower(),                         # "C:\Compacw\Empresas"
+            self.__netPath.lower(),                         # "\\localhost\Compacw\Empresas"
+            f"\\\\{self._normalize(self.__netPath).split('\\')[2]}\\{self.basePath}".lower()
+        ]
+        low = old.lower().replace("/", "\\")
+        idx = -1
+        for c in candidates:
+            i = low.find(c.replace("/", "\\"))
+            if i != -1:
+                idx = i
+                break
+        if idx == -1:
+            return old  # no tocamos si no coincide ninguna base conocida
 
+        suffix = old[idx:].replace("/", "\\").lstrip("\\/")
+        target_base = target_base.replace("/", "\\").rstrip("\\/")
         return f"{target_base}\\{suffix}"
