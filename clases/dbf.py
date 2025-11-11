@@ -11,7 +11,10 @@ class DBFManager:
         """
         Extrae información de MGW00001.DBF (tabla maestra de empresas).
         
-        Retorna lista de rutas LOCALES donde están los archivos de cada empresa.
+        IMPORTANTE: Siempre retorna rutas LOCALES para poder acceder a los archivos,
+        independientemente de cómo estén configuradas en el DBF.
+        
+        Usa absPath (ruta local completa) como base para construir las rutas.
         """
         self.__results = []
         
@@ -21,7 +24,7 @@ class DBFManager:
                 
                 for record in table:
                     if collect_paths:
-                        # Obtener CRUTADATOS
+                        # Obtener CRUTADATOS (ruta donde están los datos de la empresa)
                         ruta_datos = (record["CRUTADATOS"] or "").strip()
                         
                         if not ruta_datos:
@@ -30,29 +33,35 @@ class DBFManager:
                         # Normalizar
                         ruta_norm = ruta_datos.replace("/", "\\")
                         
-                        # Si ya es ruta absoluta, usarla
-                        if ":\\" in ruta_norm or ruta_norm.startswith("\\\\"):
-                            self.__results.append(ruta_norm)
-                        else:
-                            # Construir desde letterBase
-                            base_lower = path_manager.basePath.lower()
-                            idx = ruta_norm.lower().find(base_lower)
+                        # ESTRATEGIA: Buscar la parte relativa después de "Empresas"
+                        # Ejemplo: "\\SERVIDOR\Compacw\Empresas\Empresa1" → "Empresa1"
+                        
+                        empresas_idx = ruta_norm.lower().rfind("empresas")
+                        
+                        if empresas_idx != -1:
+                            # Encontró "Empresas", extraer lo que viene después
+                            after_empresas = ruta_norm[empresas_idx + len("empresas"):].lstrip("\\/")
                             
-                            if idx != -1:
-                                relative = ruta_norm[idx:]
-                                ruta_local = path_manager.letterBase + relative
-                                self.__results.append(ruta_local)
-                            else:
+                            # Construir ruta local usando absPath
+                            # absPath = "C:\Compacw\Empresas"
+                            # after_empresas = "Empresa1"
+                            # Resultado: "C:\Compacw\Empresas\Empresa1"
+                            ruta_local = path_manager.get_absPath() + "\\" + after_empresas
+                            self.__results.append(ruta_local)
+                        else:
+                            # No encontró "Empresas", intentar usar la ruta como está
+                            # si es absoluta
+                            if ":\\" in ruta_norm or ruta_norm.startswith("\\\\"):
                                 self.__results.append(ruta_norm)
                         
         except FileNotFoundError:
-            print(f"ERROR:  Archivo no encontrado: {table_path}")
+            print(f"Error: Archivo no encontrado: {table_path}")
         except dbf.DbfError as e:
-            print(f"ERROR:  Error DBF en {table_path}: {e}")
+            print(f"Error: Error DBF en {table_path}: {e}")
         except KeyError as e:
-            print(f"ERROR:  Columna no encontrada: {e}")
+            print(f"Error: Columna no encontrada: {e}")
         except Exception as e:
-            print(f"ERROR:  Error inesperado: {e}")
+            print(f"Error: Error inesperado: {e}")
         
         return self.__results
     
@@ -112,7 +121,7 @@ class DBFManager:
                         max_len = field_info.length
                         
                         if len(updated) > max_len:
-                            print(f"Warning:  Truncando {col}: {len(updated)} → {max_len} chars")
+                            print(f"Advertencia:  Truncando {col}: {len(updated)} → {max_len} chars")
                             updated = updated[:max_len]
                             after[col] = updated
                         
@@ -135,7 +144,7 @@ class DBFManager:
                         })
                         
                     except Exception as e1:
-                        print(f"Warning:  Método 1 falló para registro {record_index}: {e1}")
+                        print(f"Advertencia:  Método 1 falló para registro {record_index}: {e1}")
                         
                         # MÉTODO 2: Scatter assignment (dbf alternativo)
                         try:
@@ -148,21 +157,21 @@ class DBFManager:
                                 "after": after
                             })
                         except Exception as e2:
-                            print(f"ERROR:  Método 2 también falló: {e2}")
+                            print(f"Error: Método 2 también falló: {e2}")
                             print(f"   Registro: {record_index}")
                             print(f"   Cambios intentados: {list(updates_to_apply.keys())}")
             
             # CRÍTICO: Cerrar explícitamente para flush
-            print(f"Cerrando tabla: {table_path.name}")
+            print(f"\n💾 Cerrando tabla: {table_path.name}")
             table.close()
-            print(f"Tabla cerrada correctamente")
+            print(f"✅ Tabla cerrada correctamente")
             
         except FileNotFoundError:
-            print(f"ERROR:  Archivo no encontrado: {table_path}")
+            print(f"Error: Archivo no encontrado: {table_path}")
         except dbf.DbfError as e:
-            print(f"ERROR:  Error DBF en {table_path}: {e}")
+            print(f"Error: Error DBF en {table_path}: {e}")
         except Exception as e:
-            print(f"ERROR:  Error inesperado en {table_path}: {e}")
+            print(f"Error: Error inesperado en {table_path}: {e}")
             import traceback
             traceback.print_exc()
         finally:

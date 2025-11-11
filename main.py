@@ -11,7 +11,7 @@ def main():
     server_route = str()
 
     print("=" * 70)
-    print("Bienvenido al script para el cambio de ruta en ContpaqiFácil")
+    print("Bienvenido al script para el cambio de ruta en Contpaqi Factura Electronica")
     print("=" * 70)
     print("\nSi los datos por defecto corresponden a su instalación,")
     print("presione ENTER sin rellenar ningún campo.\n")
@@ -54,57 +54,51 @@ def main():
         print("\n--- CONFIGURACIÓN DE RED ---")
         server_name = input("Nombre del servidor (hostname o IP): ").strip()
         
-        print("\nVerifique la ruta en red:")
+        print("Verifique la ruta en red:")
         print(f"Ejemplo con valores actuales: \\\\{server_name or 'localhost'}\\{datosRutas.basePath}")
-        print("\nSi la ruta en red es DIFERENTE, especifíquela.")
+        print("Si la ruta en red es DIFERENTE, especifíquela.")
         print("Si es la misma, presione ENTER.")
         
         server_route = input(f"Ruta en red [actual: {datosRutas.basePath}]: ").strip()
     
-    # === CONSTRUCCIÓN DE newBase (FIX CRÍTICO) ===
+    # === CONSTRUCCIÓN DE newBase ===
     if len(server_name) == 0:
         # MODO LOCAL
         print("Configurando en modo LOCAL")
         
         # En modo local, newBase es solo la letra de disco
         datosRutas.newBase = datosRutas.letterBase.rstrip("\\")
-        print(f"   Base destino: {datosRutas.newBase}")
+        print(f"Base destino: {datosRutas.newBase}")
         
     else:
         # MODO RED
         print(f"Configurando en modo RED (servidor: {server_name})")
         
-        # Construir ruta de red COMPLETA
+        # Construir ruta de red (build_netPath ya maneja la lógica de "Empresas")
         datosRutas.build_netPath(
             hostname=server_name, 
             netPath=server_route if len(server_route) > 1 else None
         )
         
-        # CRÍTICO: En modo red, newBase debe ser SOLO el servidor
-        # NO incluir basePath porque change_path lo agregará
-        net_path_full = datosRutas.get_netPath()
+        # CRÍTICO: newBase es la ruta de red completa hasta "Empresas"
+        # Esto es correcto porque change_path extraerá la parte DESPUÉS de "Empresas"
+        datosRutas.newBase = datosRutas.get_netPath()
         
-        # Extraer solo \\SERVIDOR\ (sin basePath)
-        if net_path_full.startswith("\\\\"):
-            # Encontrar el final del nombre del servidor
-            parts = net_path_full.split("\\")
-            # parts = ['', '', 'SERVIDOR', 'Compacw', 'Empresas']
-            if len(parts) >= 3:
-                datosRutas.newBase = "\\\\" + parts[2]  # "\\SERVIDOR"
-            else:
-                datosRutas.newBase = net_path_full
+        print(f"Base destino: {datosRutas.newBase}")
+        
+        # Verificar estructura
+        if datosRutas.newBase.lower().endswith("empresas"):
+            print(f"La ruta termina correctamente en 'Empresas'")
         else:
-            datosRutas.newBase = net_path_full
-        
-        print(f"   Servidor destino: {datosRutas.newBase}")
-        print(f"   Ruta completa: {net_path_full}")
+            print(f"Advertencia: La ruta no termina en 'Empresas'")
+            print(f"Esto puede causar rutas incorrectas")
     
     print("\n" + "=" * 70)
     print("Iniciando procesamiento...")
     print("=" * 70)
     
     # === PASO 1: OBTENER RUTAS DE EMPRESAS ===
-    print("\nLeyendo catálogo de empresas...")
+    print("Leyendo catálogo de empresas...")
     mgw_path = Path(datosRutas.get_absPath()) / "MGW00001.DBF"
     
     if not mgw_path.exists():
@@ -122,8 +116,34 @@ def main():
     
     print(f"Se encontraron {len(empresas)} empresa(s)")
     
+    # === PASO 1.5: ACTUALIZAR MGW00001.DBF (TABLA MAESTRA) ===
+    print("Actualizando catálogo principal de empresas (MGW00001.DBF)...")
+    
+    cambios_catalogo = tablas.update_info(
+        mgw_path,
+        ["CRUTADATOS", "CRUTARES01"],
+        datosRutas
+    )
+    
+    if cambios_catalogo:
+        print(f"Catálogo actualizado: {len(cambios_catalogo)} cambio(s)")
+        print("\nDetalle de cambios en catálogo:")
+        for cambio in cambios_catalogo[:3]:
+            print(f"\n  Registro #{cambio.get('record', '?')}:")
+            for col in cambio['before'].keys():
+                before = cambio['before'][col][:60] + "..." if len(cambio['before'][col]) > 60 else cambio['before'][col]
+                after = cambio['after'][col][:60] + "..." if len(cambio['after'][col]) > 60 else cambio['after'][col]
+                print(f"    {col}:")
+                print(f"      Antes: {before}")
+                print(f"      Ahora: {after}")
+        
+        if len(cambios_catalogo) > 3:
+            print(f"  ... y {len(cambios_catalogo) - 3} cambio(s) más")
+    else:
+        print("No se realizaron cambios en el catálogo (las rutas ya están actualizadas)")
+    
     # === PASO 2: PROCESAR CADA EMPRESA ===
-    print("\nActualizando rutas en tablas de empresas...\n")
+    print("Actualizando rutas en tablas de empresas...\n")
     
     total_cambios = 0
     empresas_procesadas = 0
@@ -145,7 +165,7 @@ def main():
                 tabla_path = Path(empresa_path) / tabla_nombre
                 
                 if not tabla_path.exists():
-                    print(f"\n{nombre_empresa}: {tabla_nombre} no encontrado")
+                    print(f"{nombre_empresa}: {tabla_nombre} no encontrado")
                     empresa_ok = False
                     continue
                 
@@ -158,10 +178,10 @@ def main():
                         total_cambios += len(cambios)
                         
                         # Mostrar resumen de cambios en esta tabla
-                        print(f"\n   ✓ {nombre_empresa}/{tabla_nombre}: {len(cambios)} cambio(s)")
+                        print(f"{nombre_empresa}/{tabla_nombre}: {len(cambios)} cambio(s)")
                     
                 except Exception as e:
-                    print(f"\nError en {nombre_empresa}/{tabla_nombre}: {e}")
+                    print(f"Error en {nombre_empresa}/{tabla_nombre}: {e}")
                     empresa_ok = False
             
             if empresa_ok:
@@ -179,12 +199,14 @@ def main():
     print("\n" + "=" * 70)
     print("RESUMEN DE PROCESAMIENTO")
     print("=" * 70)
+    print(f"Cambios en catálogo (MGW00001):   {len(cambios_catalogo)}")
     print(f"Empresas procesadas correctamente: {empresas_procesadas}")
     print(f"Empresas con errores:             {empresas_con_errores}")
-    print(f"Total de cambios aplicados:        {total_cambios}")
+    print(f"Total de cambios en empresas:      {total_cambios}")
+    print(f"TOTAL GENERAL DE CAMBIOS:          {len(cambios_catalogo) + total_cambios}")
     print("=" * 70)
     
-    if total_cambios == 0:
+    if len(cambios_catalogo) + total_cambios == 0:
         print("ADVERTENCIA: No se aplicaron cambios.")
         print("   Posibles causas:")
         print("   - Las rutas ya están configuradas correctamente")
@@ -194,13 +216,36 @@ def main():
     else:
         # Mostrar resumen por empresa
         print("\n" + "=" * 70)
-        print("DETALLE DE CAMBIOS POR EMPRESA")
+        print("DETALLE DE CAMBIOS")
         print("=" * 70)
         
-        for emp_info in cambios_por_empresa:
-            print(f"\n📁 {emp_info['empresa']}")
-            print(f"   Ruta: {emp_info['path']}")
-            print(f"   Cambios: {len(emp_info['cambios'])}")
+        # Mostrar cambios en catálogo primero
+        if cambios_catalogo:
+            print("CATÁLOGO PRINCIPAL (MGW00001.DBF)")
+            print("=" * 70)
+            for i, cambio in enumerate(cambios_catalogo, 1):
+                print(f"\n[Empresa #{i}] Registro: {cambio.get('record', '?')}")
+                for col in cambio['before'].keys():
+                    before = cambio['before'][col]
+                    after = cambio['after'][col]
+                    
+                    before_short = before[:50] + "..." if len(before) > 50 else before
+                    after_short = after[:50] + "..." if len(after) > 50 else after
+                    
+                    print(f"{col}:")
+                    print(f"Antes: {before_short}")
+                    print(f"Ahora: {after_short}")
+        
+        # Mostrar cambios por empresa
+        if cambios_por_empresa:
+            print("\n" + "=" * 70)
+            print("TABLAS DE CADA EMPRESA (mgw10006.dbf, mgw10000.dbf)")
+            print("=" * 70)
+            
+            for emp_info in cambios_por_empresa:
+                print(f"{emp_info['empresa']}")
+                print(f"Ruta: {emp_info['path']}")
+                print(f"Cambios: {len(emp_info['cambios'])}")
             
             # Mostrar primeros cambios como ejemplo
             for i, cambio in enumerate(emp_info['cambios'][:2], 1):
@@ -213,9 +258,9 @@ def main():
                     before_short = before[:50] + "..." if len(before) > 50 else before
                     after_short = after[:50] + "..." if len(after) > 50 else after
                     
-                    print(f"      {col}:")
-                    print(f"        Antes: {before_short}")
-                    print(f"        Ahora: {after_short}")
+                    print(f"{col}:")
+                    print(f"Antes: {before_short}")
+                    print(f"Ahora: {after_short}")
             
             if len(emp_info['cambios']) > 2:
                 print(f"   ... y {len(emp_info['cambios']) - 2} cambio(s) más")
@@ -230,9 +275,26 @@ def main():
             
             with open(log_file, 'w', encoding='utf-8') as f:
                 f.write("="*80 + "\n")
-                f.write("LOG DE CAMBIOS - ContpaqiFácil\n")
+                f.write("LOG DE CAMBIOS - CONTPAQi Facturación Electrónica\n")
                 f.write("="*80 + "\n\n")
                 
+                # Catálogo principal
+                if cambios_catalogo:
+                    f.write("="*80 + "\n")
+                    f.write("CATÁLOGO PRINCIPAL DE EMPRESAS (MGW00001.DBF)\n")
+                    f.write("="*80 + "\n\n")
+                    
+                    for i, cambio in enumerate(cambios_catalogo, 1):
+                        f.write(f"[Empresa #{i}] Registro: {cambio.get('record', '?')}\n")
+                        f.write("-" * 80 + "\n")
+                        
+                        for col in cambio['before'].keys():
+                            f.write(f"  Campo: {col}\n")
+                            f.write(f"    ANTES: {cambio['before'][col]}\n")
+                            f.write(f"    AHORA: {cambio['after'][col]}\n")
+                        f.write("\n")
+                
+                # Tablas de empresas
                 for emp_info in cambios_por_empresa:
                     f.write(f"\n{'='*80}\n")
                     f.write(f"EMPRESA: {emp_info['empresa']}\n")
