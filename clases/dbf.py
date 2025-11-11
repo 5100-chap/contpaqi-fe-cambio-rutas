@@ -1,100 +1,158 @@
 from pathlib import Path
 import dbf
-from clases.path import PathManager
 
 class DBFManager:
     
     def __init__(self):
-        self.__results =  []
+        self.__results = []
         self.__changes = []
     
-    def extract_info(self, table_path: Path, path_manager:PathManager, collect_paths: bool = False) -> list:
+    def extract_info(self, table_path: Path, path_manager, collect_paths: bool = False) -> list:
         """
-        Abre una tabla DBF y extrae información.
-        - Si collect_paths=True, devuelve rutas locales transformadas desde CRUTADATOS.
-        - Si collect_paths=False, devuelve una lista vacía (extensible para otros casos de lectura).
+        Extrae información de MGW00001.DBF (tabla maestra de empresas).
+        
+        Retorna lista de rutas LOCALES donde están los archivos de cada empresa.
+        Estas rutas se usan para abrir los archivos DBF de cada empresa.
+        
+        NO debe transformar usando newBase, solo construir rutas locales válidas.
         """
         self.__results = []
+        
         try:
             with dbf.Table(str(table_path)) as table:
-                table.open(mode=dbf.READ_WRITE)
-                base_lower = path_manager.basePath.lower()
-
+                table.open(mode=dbf.READ_ONLY)  # Solo lectura
+                
                 for record in table:
-                    with record as rec:
-                        if collect_paths:
-                            new_path = (rec["CRUTADATOS"] or "").strip()
-                            idx = new_path.lower().find(base_lower)
+                    if collect_paths:
+                        # Obtener CRUTADATOS (ruta donde están los datos de la empresa)
+                        ruta_datos = (record["CRUTADATOS"] or "").strip()
+                        
+                        if not ruta_datos:
+                            continue
+                        
+                        # Normalizar
+                        ruta_norm = ruta_datos.replace("/", "\\")
+                        
+                        # Si la ruta ya es absoluta y válida, usarla directamente
+                        # Ejemplo: "C:\Compacw\Empresas\00001234"
+                        if ":\\" in ruta_norm or ruta_norm.startswith("\\\\"):
+                            # Ya es una ruta absoluta
+                            self.__results.append(ruta_norm)
+                        else:
+                            # Ruta relativa, construir desde letterBase
+                            # Buscar donde empieza basePath
+                            base_lower = path_manager.basePath.lower()
+                            idx = ruta_norm.lower().find(base_lower)
+                            
                             if idx != -1:
-                                suffix = new_path[idx:].replace("/", "\\").lstrip("\\/")
-                                base = path_manager.newBase.replace("/", "\\").rstrip("\\/")
-                                self.__results.append(f"{base}\\{suffix}")
+                                # Extraer desde basePath
+                                relative = ruta_norm[idx:]
+                                ruta_local = path_manager.letterBase + relative
+                                self.__results.append(ruta_local)
+                            else:
+                                # No contiene basePath, asumir que es ruta completa
+                                self.__results.append(ruta_norm)
+                        
         except FileNotFoundError:
-            print(f"Archivo no encontrado: {table_path}")
+            print(f"ERROR: Archivo no encontrado: {table_path}")
         except dbf.DbfError as e:
-            print(f"Error DBF en {table_path}: {e}")
+            print(f"ERROR: Error DBF en {table_path}: {e}")
+        except KeyError as e:
+            print(f"ERROR: Columna no encontrada en {table_path}: {e}")
         except Exception as e:
-            print(f"Error inesperado en {table_path}: {e}")
+            print(f"ERROR: Error inesperado en {table_path}: {e}")
+        
         return self.__results
     
-    def update_info(self, table_path: Path, columns: list, path_manager: PathManager) -> list:
+    def update_info(self, table_path: Path, columns: list, path_manager) -> list:
+        """
+        Actualiza columnas de tipo ruta en una tabla DBF.
+        
+        Transforma rutas de:
+        - Local → Red: "C:\\...\\Formatos" → "\\\\SERVIDOR\\...\\Formatos"
+        - Red → Local: "\\\\VIEJO\\...\\Formatos" → "C:\\...\\Formatos"
+        - Red → Red: "\\\\VIEJO\\...\\Formatos" → "\\\\NUEVO\\...\\Formatos"
+        
+        Retorna lista de cambios realizados.
+        """
         self.__changes = []
+        
         try:
             with dbf.Table(str(table_path)) as table:
                 table.open(mode=dbf.READ_WRITE)
-                fields = set(table.field_names)
-
+                
+                # Obtener nombres de campos disponibles
+                available_fields = set(table.field_names)
+                
                 for record in table:
+                    record_changed = False
+                    before = {}
+                    after = {}
+                    
+                    # Iniciar contexto de escritura
                     with record as rec:
-                        before = {}
-                        after = {}
-                        changed = False
-
                         for col in columns:
-                            if col not in fields:
-                                print(f"Columna {col} no encontrada en {table_path}")
+                            # Verificar que la columna existe
+                            if col not in available_fields:
+                                print(f"WARNING:  Columna '{col}' no encontrada en {table_path.name}")
                                 continue
-
+                            
+                            # Obtener valor actual
                             original = (rec[col] or "").strip()
-                            updated = path_manager.change_path(original, new_base=path_manager.newBase)
+                            
+                            # Si está vacío, no procesar
+                            if not original:
+                                continue
+                            
+                            # Transformar ruta usando newBase
+                            updated = path_manager.change_path(
+                                original, 
+                                new_base=path_manager.newBase
+                            )
+                            
+                            # Registrar valores (incluso si no hay cambio, para debug)
                             before[col] = original
                             after[col] = updated
-
+                            
+                            # Solo escribir si hay cambio REAL
                             if updated != original:
                                 try:
-                                    # log antes de escribir
-                                    print(f"[WRITE] Tabla: {table_path} - Registro: {table._current_record} - Campo: {col}")
-                                    print(f"        Antes repr: {repr(original)}")
-                                    print(f"        Intentando escribir repr: {repr(updated)}")
+                                    # CRÍTICO: Asignar el nuevo valor
                                     rec[col] = updated
-                                    # log justo después
-                                    print(f"        OK escrito repr: {repr(rec[col])}")
-                                    changed = True
-                                except dbf.DbfError as e:
-                                    print(f"Error al escribir {col} en {table_path}: {e}")
+                                    record_changed = True
+                                    
+                                except dbf.DataOverflowError as e:
+                                    # El valor es más largo que el campo
+                                    print(f"⚠️  Valor muy largo para {col} en {table_path.name}")
+                                    
+                                    # Truncar al tamaño máximo del campo
+                                    field_info = table.field_info(col)
+                                    max_len = field_info.length
+                                    truncated = updated[:max_len]
+                                    
+                                    print(f"   Original: {updated}")
+                                    print(f"   Truncado: {truncated}")
+                                    
+                                    rec[col] = truncated
+                                    after[col] = truncated  # Actualizar el registro
+                                    record_changed = True
+                                    
                                 except Exception as e:
-                                    print(f"Excepción inesperada al escribir {col} en {table_path}: {e}")
-
-                        if changed:
-                            self.__changes.append({
-                                "table": str(table_path),
-                                "before": before,
-                                "after": after
-                            })
+                                    print(f"ERROR: Error al escribir {col} en {table_path.name}: {e}")
+                    
+                    # Registrar cambios si hubo modificaciones
+                    if record_changed:
+                        self.__changes.append({
+                            "table": str(table_path),
+                            "before": before,
+                            "after": after
+                        })
+        
         except FileNotFoundError:
-            print(f"Archivo no encontrado: {table_path}")
+            print(f"ERROR: Archivo no encontrado: {table_path}")
         except dbf.DbfError as e:
-            print(f"Error DBF en {table_path}: {e}")
+            print(f"ERROR: Error DBF en {table_path}: {e}")
         except Exception as e:
-            print(f"Error inesperado en {table_path}: {e}")
+            print(f"ERROR: Error inesperado en {table_path}: {e}")
+        
         return self.__changes
-        try:
-            with dbf.Table(str(table_path)) as t2:
-                t2.open()
-                # leer primeros 3 registros o el índice que quieras verificar
-                for i, r in enumerate(t2):
-                    if i >= 5: break
-                    val = r[col] if col in r else None
-                    print(f"[READBACK] Tabla: {table_path} - registro {i} - {col} repr: {repr(val)}")
-        except Exception as e:
-            print("Error readback:", e)
