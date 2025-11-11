@@ -67,11 +67,10 @@ class PathManager:
     
     def change_path(self, old_path: str, new_base: str = None) -> str:
         """
-        Reemplaza la base de una ruta manteniendo la estructura relativa DESPUÉS de basePath.
+        Reemplaza la base de una ruta manteniendo la estructura relativa después de basePath.
         
-        LÓGICA INTELIGENTE:
         1. Busca dónde está basePath en la ruta original
-        2. Extrae todo lo que viene DESPUÉS de basePath
+        2. Extrae todo lo que viene después de basePath
         3. Verifica si newBase ya termina con "Empresas"
         4. Construye la nueva ruta correctamente
         
@@ -127,7 +126,7 @@ class PathManager:
                 return old_path
         else:
             # Se encontró basePath completo
-            # Extraer desde el FINAL de basePath
+            # Extraer desde el final de basePath
             end_base = idx + len(base_lower)
             relative_part = old[end_base:].lstrip("\\/")
         

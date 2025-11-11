@@ -4,6 +4,28 @@ from tqdm import tqdm
 from clases.dbf import DBFManager
 from clases.path import PathManager
 
+
+"""
+Script para cambio de rutas en tablas DBF (Contpaqi): Versión con clases 0.8.
+Autor del Script Base: Helker Hubbard
+Autor de esta versión modificada: 5100-chap
+Año: 2025
+
+Este programa es software libre: puedes redistribuirlo y/o modificarlo 
+bajo los términos de la Licencia Pública General de GNU publicada por la 
+Free Software Foundation, ya sea la versión 3 de la Licencia, o 
+(a tu elección) cualquier versión posterior.
+
+Este programa se distribuye con la esperanza de que sea útil, 
+pero SIN NINGUNA GARANTÍA; sin siquiera la garantía implícita de 
+COMERCIABILIDAD o IDONEIDAD PARA UN PROPÓSITO PARTICULAR. 
+Consulta la Licencia Pública General de GNU para más detalles.
+
+Deberías haber recibido una copia de la Licencia Pública General de GNU
+junto con este programa. En caso contrario, consulta <https://www.gnu.org/licenses/>.
+"""
+
+
 def main():
     tablas = DBFManager()
     type_selection = "0"
