@@ -14,7 +14,7 @@ class PathManager:
         self.basePath = basePath.strip("\\/").replace("/", "\\")
         
         self.letterBase = letterBase.upper() + ":\\"
-        self.newBase = self.letterBase  # Por defecto: local
+        self.newBase = self.letterBase 
         self.__netPath = "\\\\localhost\\"
         self.__absPath = self.letterBase + self.basePath
     
@@ -71,7 +71,7 @@ class PathManager:
         
         LÓGICA INTELIGENTE:
         1. Busca dónde está basePath en la ruta original
-        2. Extrae TODO lo que viene DESPUÉS de basePath
+        2. Extrae todo lo que viene DESPUÉS de basePath
         3. Verifica si newBase ya termina con "Empresas"
         4. Construye la nueva ruta correctamente
         
@@ -82,7 +82,7 @@ class PathManager:
             newBase: "\\\\NUEVO\\Empresas"
             
             → Encuentra "Compacw\\Empresas" en posición X
-            → Extrae TODO después: "\\Empresa1\\Facturas"
+            → Extrae todo después: "\\Empresa1\\Facturas"
             → newBase ya termina en "Empresas" → usar directamente
             → Resultado: "\\\\NUEVO\\Empresas\\Empresa1\\Facturas"
             
@@ -92,7 +92,7 @@ class PathManager:
             newBase: "\\\\NUEVO\\Compacw\\Empresas"
             
             → Encuentra "Empresas" (parte de basePath) en posición X
-            → Extrae TODO después: "\\Empresa1\\Facturas"
+            → Extrae todo después: "\\Empresa1\\Facturas"
             → newBase ya termina correctamente → usar directamente
             → Resultado: "\\\\NUEVO\\Compacw\\Empresas\\Empresa1\\Facturas"
         """

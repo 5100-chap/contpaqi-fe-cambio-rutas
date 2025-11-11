@@ -14,7 +14,7 @@ class DBFManager:
         IMPORTANTE: Siempre retorna rutas LOCALES para poder acceder a los archivos,
         independientemente de cómo estén configuradas en el DBF.
         
-        Usa absPath (ruta local completa) como base para construir las rutas.
+        Usa path_manager.get_absPath (ruta local completa) como base para construir las rutas.
         """
         self.__results = []
         
@@ -30,7 +30,7 @@ class DBFManager:
                         if not ruta_datos:
                             continue
                         
-                        # Normalizar
+                        # Normaliza la ruta
                         ruta_norm = ruta_datos.replace("/", "\\")
                         
                         # ESTRATEGIA: Buscar la parte relativa después de "Empresas"
@@ -39,10 +39,10 @@ class DBFManager:
                         empresas_idx = ruta_norm.lower().rfind("empresas")
                         
                         if empresas_idx != -1:
-                            # Encontró "Empresas", extraer lo que viene después
+                            # Encentra "Empresas", y extraer lo que viene después
                             after_empresas = ruta_norm[empresas_idx + len("empresas"):].lstrip("\\/")
                             
-                            # Construir ruta local usando absPath
+                            # Construir en ruta local usando absPath
                             # absPath = "C:\Compacw\Empresas"
                             # after_empresas = "Empresa1"
                             # Resultado: "C:\Compacw\Empresas\Empresa1"
@@ -68,21 +68,19 @@ class DBFManager:
     def update_info(self, table_path: Path, columns: list, path_manager) -> list:
         """
         Actualiza columnas de tipo ruta en una tabla DBF.
-        
-        VERSIÓN ROBUSTA: Múltiples estrategias de escritura para asegurar persistencia.
         """
         self.__changes = []
         table = None
         
         try:
-            # Estrategia: Abrir SIN context manager para control total
+            # Estrategia: Abrir SIN el context manager para un control total
             table = dbf.Table(str(table_path))
             table.open(mode=dbf.READ_WRITE)
             
-            # Obtener campos disponibles
+            # Obtener los campos disponibles
             available_fields = set(table.field_names)
             
-            # Iterar sobre registros
+            # Iterar sobre cada registro
             record_index = 0
             for record in table:
                 record_index += 1
@@ -90,12 +88,12 @@ class DBFManager:
                 after = {}
                 updates_to_apply = {}
                 
-                # FASE 1: Determinar qué cambiar
+                # FASE 1: Determina qué hay que cambiar
                 for col in columns:
                     if col not in available_fields:
                         continue
                     
-                    # Leer valor actual
+                    # Lee el valor actual
                     try:
                         original = str(record[col] or "").strip()
                     except:
@@ -104,7 +102,7 @@ class DBFManager:
                     if not original:
                         continue
                     
-                    # Transformar ruta
+                    # Transforma esta ruta
                     updated = path_manager.change_path(
                         original, 
                         new_base=path_manager.newBase
@@ -161,10 +159,10 @@ class DBFManager:
                             print(f"   Registro: {record_index}")
                             print(f"   Cambios intentados: {list(updates_to_apply.keys())}")
             
-            # CRÍTICO: Cerrar explícitamente para flush
-            print(f"\n💾 Cerrando tabla: {table_path.name}")
+            # Cierra la tabla explícitamente
+            print(f"Cerrando tabla: {table_path.name}")
             table.close()
-            print(f"✅ Tabla cerrada correctamente")
+            print(f"Tabla cerrada correctamente")
             
         except FileNotFoundError:
             print(f"Error: Archivo no encontrado: {table_path}")
@@ -175,7 +173,7 @@ class DBFManager:
             import traceback
             traceback.print_exc()
         finally:
-            # Asegurar cierre incluso si hay error
+            # Esto asegura el cierre incluso si hay algunerror
             if table is not None:
                 try:
                     if not table.status.closed:

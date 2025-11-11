@@ -17,13 +17,13 @@ def main():
     print("presione ENTER sin rellenar ningún campo.\n")
     
     # === CONFIGURACIÓN DE RUTA BASE ===
-    temp1 = input("Disco de instalación (sin :\\) [por defecto C]: ").strip()
+    temp1 = input("Definiri unidad de disco (sin :\\) [por defecto: C]: ").strip()
     if len(temp1) != 1:
         temp1 = None
     
-    print("\nRuta de instalación (sin unidad de disco):")
+    print("\nDefine la ruta de instalación (sin unidad de disco):")
     print("Por defecto: Compacw\\Empresas")
-    print("Ejemplo: C:\\Compacw\\Empresas (donde C es la unidad anterior)")
+    print("Ejemplo de contrucción con valores predeterminados: C:\\Compacw\\Empresas (donde C es la unidad anteriormente definida)")
     
     temp2 = input("Ruta: ").strip()
     if len(temp2) == 0:
@@ -41,14 +41,14 @@ def main():
     else:
         datosRutas = PathManager(letterBase=temp1, basePath=temp2)
     
-    print(f"Ruta configurada: {datosRutas.get_absPath()}")
+    print(f"Ruta absoluta construida: {datosRutas.get_absPath()}")
     
     # === CONFIGURACIÓN DE TIPO (LOCAL/RED) ===
     print("\n" + "=" * 70)
     print("¿Cuál es el tipo de configuración que desea aplicar?")
-    print("[0]: Local (rutas C:\\...)")
-    print("[1]: Red (rutas \\\\SERVIDOR\\...)")
-    type_selection = input("Opción: ").strip()
+    print("[0]: Local (C:\\...)")
+    print("[1]: Red (\\\\SERVIDOR\\...)")
+    type_selection = input("Eliga su opción [Por defecto: 0]: ").strip()
     
     if type_selection == "1":
         print("\n--- CONFIGURACIÓN DE RED ---")
@@ -64,7 +64,7 @@ def main():
     # === CONSTRUCCIÓN DE newBase ===
     if len(server_name) == 0:
         # MODO LOCAL
-        print("Configurando en modo LOCAL")
+        print(str("Advertencia: Nombre del servidor no definido, cambiando a" if type_selection == '1' else "Configurando en") + " modo LOCAL")
         
         # En modo local, newBase es solo la letra de disco
         datosRutas.newBase = datosRutas.letterBase.rstrip("\\")
@@ -80,7 +80,7 @@ def main():
             netPath=server_route if len(server_route) > 1 else None
         )
         
-        # CRÍTICO: newBase es la ruta de red completa hasta "Empresas"
+        # newBase es la ruta de red completa hasta "Empresas"
         # Esto es correcto porque change_path extraerá la parte DESPUÉS de "Empresas"
         datosRutas.newBase = datosRutas.get_netPath()
         
