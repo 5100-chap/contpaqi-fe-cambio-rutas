@@ -1,17 +1,17 @@
-# 📌 contpaqi-fe-cambio-rutas
+# Contpaqi Factura Electrónica - Script para cambio de rutas
 
-Script en **Python** para cambiar las rutas de todas las tablas y empresas en el sistema **Contpaqi Factura Electrónica**.
+Este script en **Python** esta diseñado para cambiar las rutas de todas las tablas y empresas en el sistema **Contpaqi Factura Electrónica**.
 
-## 🚀 Descripción
+## Descripción General
 
-En ocasiones, cuando se cambia un sistema **Contpaqi Factura Electrónica** de **modo local a red** (o viceversa), las rutas internas de las bases de datos DBF quedan configuradas con la ruta anterior.
+En ocasiones, cuando se cambia un sistema **Contpaqi Factura Electrónica** de **modo local a red** (o viceversa), las rutas internas de las bases de datos DBF quedan configuradas con la ruta previa.
 
 * Si solo existen unas pocas empresas, se pueden actualizar manualmente usando un gestor de DBF.
-* Sin embargo, cuando existen **muchas empresas registradas**, este proceso manual se vuelve lento y propenso a errores.
+* Sin embargo, cuando existen **muchas empresas registradas**, este proceso manual se vuelve tedioso y propenso a errores.
 
-Este script automatiza el cambio de rutas, permitiendo que todas las tablas relevantes se actualicen de forma rápida y consistente.
+Este script ayuda a automatiza el cambio de rutas, permitiendo que todas las tablas relevantes se actualicen de una forma rápida y consistente.
 
-## 📂 Tablas y campos afectados
+## ¿Cómo afecta a las tablas y a los campos?
 
 El script modifica las rutas en las siguientes tablas y columnas, basadas en la documentación oficial de **Contpaqi Factura Electrónica**:
 
@@ -39,41 +39,42 @@ El script modifica las rutas en las siguientes tablas y columnas, basadas en la 
 | 3   | `CRUTADATOS` | C    | 253      | Ruta de la empresa             |
 | 4   | `CRUTARES01` | C    | 253      | Ruta de respaldo de la empresa |
 
-## ⚙️ Requisitos
+## Requisitos
 
 * Python **3.9+**
 * Librería [`dbf`](https://pypi.org/project/dbf/)
 * Librería [`tqdm`](https://pypi.org/project/tqdm/) (para la barra de progreso)
 
-Instalación rápida:
+# Instalación:
+
+En el ambiente de trabajo se debe de asegurar de tener instalado las librerias anteriormente mencionadas, pueden ser instaladas con:
 
 ```bash
 pip install dbf tqdm
 ```
 
-## 🖥️ Uso
+## Uso del script
 
-1. Coloca el script en tu entorno local.
-2. Ejecútalo en consola:
+1. Coloca el script en tu entorno local de trabajo, **el cual obligatoriamente debe de ser en donde esta instalado el servidor u el monousuario de Contpaqi Factura Electrónica**.
+2. Abrir la terminal que se tenga por defecto *(Ejemplo: CMD, Powershell, Windows Terminal)* en donde esta los archivos del script o en su defecto ir a la carpeta donde esta el script con *cd*
+3. Ejecutar el siguiente comando:
 
 ```bash
 python main.py
 ```
 
-3. Selecciona el tipo de configuración:
+4. Selecciona el tipo de configuración:
 
    * **\[0]** Local
    * **\[1]** Red
 
-4. Si eliges red, deberás ingresar el nombre del servidor. Asegurate de ejecutar el sistema **sobre** la computadora destinada a ser el servidor.
+5. Si eliges red, deberás ingresar el nombre del servidor. **Asegurate de ejecutar el sistema sobre la computadora destinada a ser el servidor.**
 
-El script procesará automáticamente todas las empresas y actualizará las rutas de las tablas correspondientes.
+## IMPORTANTE
 
-## ⚠️ IMPORTANTE
+Este script **no es una herramienta oficial de CONTPAQi®**, fue desarrollado de manera independiente con fines de apoyo a ingenieros de soporte técnico. Úsalo bajo tu propia responsabilidad y **realiza siempre un respaldo de tus bases de datos antes de ejecutar cualquier cambio**. El autor, asi como los colaboradores de este script, no se hace responsable de pérdidas de información, mal uso o daños derivados de su aplicación.
 
-Este script **no es una herramienta oficial de CONTPAQi®**, fue desarrollado de manera independiente con fines de apoyo a ingenieros de soporte técnico. Úsalo bajo tu propia responsabilidad y **realiza siempre un respaldo de tus bases de datos antes de ejecutar cualquier cambio**. El autor no se hace responsable de pérdidas de información, mal uso o daños derivados de su aplicación.
-
-## 📜 Licencia
+## Licencia
 
 Este proyecto está bajo la licencia **GPL v3** para garantizar que siempre sea **software libre y gratuito**.
 
