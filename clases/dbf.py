@@ -17,14 +17,18 @@ class DBFManager:
         self.__results = []
         try:
             with dbf.Table(str(table_path)) as table:
-                table.open(mode=dbf.READ_WRITE)  # mantenemos modo RW para consistencia con el original
+                table.open(mode=dbf.READ_WRITE)
+                base_lower = path_manager.basePath.lower()
+
                 for record in table:
-                    with record as rec:  # type: ignore
-                        if collect_paths:  # caso MGW00001
-                            new_path = rec["CRUTADATOS"].strip()
-                            idx = new_path.lower().find(path_manager.basePath.lower())
+                    with record as rec:
+                        if collect_paths:
+                            new_path = (rec["CRUTADATOS"] or "").strip()
+                            idx = new_path.lower().find(base_lower)
                             if idx != -1:
-                                self.__results.append(str(Path(path_manager.newBase) / new_path[idx:]))
+                                suffix = new_path[idx:].replace("/", "\\").lstrip("\\/")
+                                base = path_manager.newBase.replace("/", "\\").rstrip("\\/")
+                                self.__results.append(f"{base}\\{suffix}")
         except FileNotFoundError:
             print(f"Archivo no encontrado: {table_path}")
         except dbf.DbfError as e:
@@ -33,37 +37,57 @@ class DBFManager:
             print(f"Error inesperado en {table_path}: {e}")
         return self.__results
     
+    def _get_field_len(table, col):
+        # table.field_info(col) devuelve (type, length, decimals) en dbf 2.x
+        ftype, flen, fdec = table.field_info(col)
+        return flen
+    
     def update_info(self, table_path: Path, columns: list, path_manager: PathManager) -> list:
-        """
-        Abre una tabla DBF, actualiza columnas de ruta y devuelve un reporte de cambios.
-        Reporte por registro:
-        { "before": {col: valor_original}, "after": {col: valor_actualizado} }
-        Solo incluye registros donde hubo cambios efectivos.
-        """
         self.__changes = []
         try:
             with dbf.Table(str(table_path)) as table:
                 table.open(mode=dbf.READ_WRITE)
+
+                # Lista de campos existentes
+                fields = set(table.field_names)
+
+                # Pre-calcular longitudes
+                lens = {col: _get_field_len(table, col) for col in columns if col in fields}
+
                 for record in table:
-                    with record as rec:  # type: ignore
+                    with record as rec:
                         before = {}
                         after = {}
                         changed = False
+
                         for col in columns:
-                            try:
-                                raw = rec[col] if col in rec else None
-                                original = (raw or "").strip()
-                                # Sustituimos usando path_manager
-                                updated = path_manager.change_path(original, new_base=path_manager.newBase)
-                                before[col] = original
-                                after[col] = updated
-                                if updated != original:
-                                    rec[col] = updated
-                                    changed = True
-                            except KeyError:
+                            if col not in fields:
                                 print(f"Columna {col} no encontrada en {table_path}")
+                                continue
+
+                            raw = rec[col]
+                            original = (raw or "").strip()
+
+                            updated = path_manager.change_path(original, new_base=path_manager.newBase)
+
+                            # Truncar si excede la longitud del campo
+                            maxlen = lens.get(col, None)
+                            if maxlen is not None and updated is not None:
+                                updated = updated[:maxlen]
+
+                            before[col] = original
+                            after[col] = updated
+
+                            if updated != original:
+                                rec[col] = updated
+                                changed = True
+
                         if changed:
-                            self.__changes.append({"table": str(table_path), "before": before, "after": after})
+                            self.__changes.append({
+                                "table": str(table_path),
+                                "before": before,
+                                "after": after
+                            })
         except FileNotFoundError:
             print(f"Archivo no encontrado: {table_path}")
         except dbf.DbfError as e:

@@ -88,8 +88,6 @@ def main():
                 total_cambios += len(cambios)
 
     print(f"Empresas procesadas con éxito. Cambios aplicados: {total_cambios}")
-    input()
-
 
 if __name__ == "__main__":
     main()

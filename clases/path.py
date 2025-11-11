@@ -37,18 +37,21 @@ class PathManager:
         return str(p).replace("/", "\\").strip()
 
     def change_path(self, old_path: str, new_base: str = None) -> str:
-        
         old = self._normalize(old_path)
         if not old:
-            return old_path
+            return old  # devolver "" si estaba vacío
 
-        target_base = new_base if new_base is not None else self.newBase
+        target_base = self._normalize(new_base) if new_base is not None else self._normalize(self.newBase)
+
+        # Buscar la base declarada (Compacw\Empresas) en la ruta original
         idx = old.lower().find(self.basePath.lower())
-        if idx != -1:
-            # conservamos slash forward en new_base si new_base lo tiene
-            suffix = old[idx:].lstrip("\\/")
-            return str(Path(target_base.replace("/", "\\")) / suffix)
-        return old_path
+        if idx == -1:
+            # Si no aparece, no tocamos la ruta
+            return old
 
-        # fallback
-        return old
+        suffix = old[idx:]  # conservar exactamente desde basePath
+        # Siempre usar backslashes para DBF (DOS)
+        target_base = target_base.replace("/", "\\").rstrip("\\/")
+        suffix = suffix.replace("/", "\\").lstrip("\\/")
+
+        return f"{target_base}\\{suffix}"
