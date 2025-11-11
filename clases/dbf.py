@@ -63,11 +63,18 @@ class DBFManager:
 
                             if updated != original:
                                 try:
-                                    rec[col] = updated  # sin truncar manualmente
+                                    # log antes de escribir
+                                    print(f"[WRITE] Tabla: {table_path} - Registro: {table._current_record} - Campo: {col}")
+                                    print(f"        Antes repr: {repr(original)}")
+                                    print(f"        Intentando escribir repr: {repr(updated)}")
+                                    rec[col] = updated
+                                    # log justo después
+                                    print(f"        OK escrito repr: {repr(rec[col])}")
                                     changed = True
                                 except dbf.DbfError as e:
-                                    # Si el campo es demasiado largo u otro problema de tipo
                                     print(f"Error al escribir {col} en {table_path}: {e}")
+                                except Exception as e:
+                                    print(f"Excepción inesperada al escribir {col} en {table_path}: {e}")
 
                         if changed:
                             self.__changes.append({
@@ -82,3 +89,13 @@ class DBFManager:
         except Exception as e:
             print(f"Error inesperado en {table_path}: {e}")
         return self.__changes
+        try:
+            with dbf.Table(str(table_path)) as t2:
+                t2.open()
+                
+                for i, r in enumerate(t2):
+                    if i >= 5: break
+                    val = r[col] if col in r else None
+                    print(f"[READBACK] Tabla: {table_path} - registro {i} - {col} repr: {repr(val)}")
+        except Exception as e:
+            print("Error readback:", e)
