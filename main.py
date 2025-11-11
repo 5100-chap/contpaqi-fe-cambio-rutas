@@ -67,7 +67,7 @@ def main():
         print("En dado caso de que NO sea asi, favor de configurar la ruta de red o de ENTER en caso de estar correcto: ")
         server_route = str(input("Formato esperado \"Ruta\\Subruta1\\Subruta2\\...\", Ruta actual \'" + str(datosRutas.basePath) + "\': "))
     if (len(server_name.strip()) == 0):
-        print(f"{"No ha introducido el nombre del servidor, s" if type_selection == "1" else "S"}e configurará de manera local")
+        print(("No ha introducido el nombre del servidor, s" if type_selection == "1" else "S") + "e configurará de manera local")
         datosRutas.build_netPath(netPath=server_route if (len(server_route.strip()) > 1) else None)
     else:
         datosRutas.build_netPath(hostname=server_name, netPath=server_route if (len(server_route.strip()) > 1) else None)
