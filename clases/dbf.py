@@ -37,22 +37,12 @@ class DBFManager:
             print(f"Error inesperado en {table_path}: {e}")
         return self.__results
     
-    def _get_field_len(table, col):
-        # table.field_info(col) devuelve (type, length, decimals) en dbf 2.x
-        ftype, flen, fdec = table.field_info(col)
-        return flen
-    
     def update_info(self, table_path: Path, columns: list, path_manager: PathManager) -> list:
         self.__changes = []
         try:
             with dbf.Table(str(table_path)) as table:
                 table.open(mode=dbf.READ_WRITE)
-
-                # Lista de campos existentes
                 fields = set(table.field_names)
-
-                # Pre-calcular longitudes
-                lens = {col: _get_field_len(table, col) for col in columns if col in fields}
 
                 for record in table:
                     with record as rec:
@@ -65,22 +55,19 @@ class DBFManager:
                                 print(f"Columna {col} no encontrada en {table_path}")
                                 continue
 
-                            raw = rec[col]
-                            original = (raw or "").strip()
-
+                            original = (rec[col] or "").strip()
                             updated = path_manager.change_path(original, new_base=path_manager.newBase)
-
-                            # Truncar si excede la longitud del campo
-                            maxlen = lens.get(col, None)
-                            if maxlen is not None and updated is not None:
-                                updated = updated[:maxlen]
 
                             before[col] = original
                             after[col] = updated
 
                             if updated != original:
-                                rec[col] = updated
-                                changed = True
+                                try:
+                                    rec[col] = updated  # sin truncar manualmente
+                                    changed = True
+                                except dbf.DbfError as e:
+                                    # Si el campo es demasiado largo u otro problema de tipo
+                                    print(f"Error al escribir {col} en {table_path}: {e}")
 
                         if changed:
                             self.__changes.append({
