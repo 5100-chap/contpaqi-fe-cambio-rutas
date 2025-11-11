@@ -4,27 +4,6 @@ from tqdm import tqdm
 from clases.dbf import DBFManager
 from clases.path import PathManager
 
-"""
-Script para cambio de rutas en tablas DBF (Contpaqi).
-Autor: Helker Hubbard
-Modificado por 5100-chap
-Año: 2025
-
-Este programa es software libre: puedes redistribuirlo y/o modificarlo 
-bajo los términos de la Licencia Pública General de GNU publicada por la 
-Free Software Foundation, ya sea la versión 3 de la Licencia, o 
-(a tu elección) cualquier versión posterior.
-
-Este programa se distribuye con la esperanza de que sea útil, 
-pero SIN NINGUNA GARANTÍA; sin siquiera la garantía implícita de 
-COMERCIABILIDAD o IDONEIDAD PARA UN PROPÓSITO PARTICULAR. 
-Consulta la Licencia Pública General de GNU para más detalles.
-
-Deberías haber recibido una copia de la Licencia Pública General de GNU
-junto con este programa. En caso contrario, consulta <https://www.gnu.org/licenses/>.
-"""
-
-
 def main():
     tablas = DBFManager()
     type_selection = "0"
@@ -125,13 +104,13 @@ def main():
     print("=" * 70)
     
     # === PASO 1: OBTENER RUTAS DE EMPRESAS ===
-    print("Leyendo catálogo de empresas...")
+    print("\nLeyendo catálogo de empresas...")
     mgw_path = Path(datosRutas.get_absPath()) / "MGW00001.DBF"
     
     if not mgw_path.exists():
         print(f"ERROR: No se encontró {mgw_path}")
         print("   Verifique que la ruta de instalación sea correcta.")
-        input("Presione ENTER para salir...")
+        input("\nPresione ENTER para salir...")
         return
     
     empresas = tablas.extract_info(mgw_path, path_manager=datosRutas, collect_paths=True)
@@ -144,37 +123,55 @@ def main():
     print(f"Se encontraron {len(empresas)} empresa(s)")
     
     # === PASO 2: PROCESAR CADA EMPRESA ===
-    print("Actualizando rutas en tablas de empresas...\n")
+    print("\nActualizando rutas en tablas de empresas...\n")
     
     total_cambios = 0
     empresas_procesadas = 0
     empresas_con_errores = 0
     
-    with tqdm(empresas, desc="Procesando", unit="empresa") as pbar:
+    # Log detallado de cada empresa
+    cambios_por_empresa = []
+    
+    with tqdm(empresas, desc="Procesando", unit="empresa", disable=False) as pbar:
         for i, empresa_path in enumerate(pbar, start=1):
-            # Extraer nombre de empresa para mostrar
+            # Extraer nombre de empresa
             nombre_empresa = empresa_path[datosRutas.indexCompanyName():]
-            pbar.set_description(f"Empresa {i}/{len(empresas)}: {nombre_empresa}")
+            pbar.set_description(f"[{i}/{len(empresas)}] {nombre_empresa}")
             
             empresa_ok = True
+            cambios_empresa = []
             
             for tabla_nombre, columnas in datosRutas.tablePath:
                 tabla_path = Path(empresa_path) / tabla_nombre
                 
                 if not tabla_path.exists():
-                    print(f"Archivo no encontrado: {tabla_path}")
+                    print(f"\n{nombre_empresa}: {tabla_nombre} no encontrado")
                     empresa_ok = False
                     continue
                 
                 try:
+                    # Procesar tabla
                     cambios = tablas.update_info(tabla_path, columnas, datosRutas)
-                    total_cambios += len(cambios)
+                    
+                    if cambios:
+                        cambios_empresa.extend(cambios)
+                        total_cambios += len(cambios)
+                        
+                        # Mostrar resumen de cambios en esta tabla
+                        print(f"\n   ✓ {nombre_empresa}/{tabla_nombre}: {len(cambios)} cambio(s)")
+                    
                 except Exception as e:
-                    print(f"Error en {tabla_path}: {e}")
+                    print(f"\nError en {nombre_empresa}/{tabla_nombre}: {e}")
                     empresa_ok = False
             
             if empresa_ok:
                 empresas_procesadas += 1
+                if cambios_empresa:
+                    cambios_por_empresa.append({
+                        "empresa": nombre_empresa,
+                        "path": empresa_path,
+                        "cambios": cambios_empresa
+                    })
             else:
                 empresas_con_errores += 1
     
@@ -193,6 +190,67 @@ def main():
         print("   - Las rutas ya están configuradas correctamente")
         print("   - La configuración de origen/destino es la misma")
         print("   - Los archivos están vacíos o sin rutas configuradas")
+        print("Sugerencia: Use el script de debug para inspeccionar los DBF")
+    else:
+        # Mostrar resumen por empresa
+        print("\n" + "=" * 70)
+        print("DETALLE DE CAMBIOS POR EMPRESA")
+        print("=" * 70)
+        
+        for emp_info in cambios_por_empresa:
+            print(f"\n📁 {emp_info['empresa']}")
+            print(f"   Ruta: {emp_info['path']}")
+            print(f"   Cambios: {len(emp_info['cambios'])}")
+            
+            # Mostrar primeros cambios como ejemplo
+            for i, cambio in enumerate(emp_info['cambios'][:2], 1):
+                print(f"\n   Cambio #{i} en {cambio['table']}:")
+                for col in cambio['before'].keys():
+                    before = cambio['before'][col]
+                    after = cambio['after'][col]
+                    
+                    # Truncar si es muy largo
+                    before_short = before[:50] + "..." if len(before) > 50 else before
+                    after_short = after[:50] + "..." if len(after) > 50 else after
+                    
+                    print(f"      {col}:")
+                    print(f"        Antes: {before_short}")
+                    print(f"        Ahora: {after_short}")
+            
+            if len(emp_info['cambios']) > 2:
+                print(f"   ... y {len(emp_info['cambios']) - 2} cambio(s) más")
+        
+        # Opción de guardar log completo
+        print("\n" + "=" * 70)
+        print("¿Guardar log completo en archivo? (s/N): ", end="")
+        guardar = input().strip().lower()
+        
+        if guardar in ['s', 'si', 'sí', 'yes', 'y']:
+            log_file = Path("cambios_rutas.log")
+            
+            with open(log_file, 'w', encoding='utf-8') as f:
+                f.write("="*80 + "\n")
+                f.write("LOG DE CAMBIOS - ContpaqiFácil\n")
+                f.write("="*80 + "\n\n")
+                
+                for emp_info in cambios_por_empresa:
+                    f.write(f"\n{'='*80}\n")
+                    f.write(f"EMPRESA: {emp_info['empresa']}\n")
+                    f.write(f"RUTA: {emp_info['path']}\n")
+                    f.write(f"{'='*80}\n\n")
+                    
+                    for i, cambio in enumerate(emp_info['cambios'], 1):
+                        f.write(f"[Cambio #{i}] Archivo: {cambio['table']}\n")
+                        f.write(f"  Registro: {cambio.get('record', '?')}\n")
+                        f.write("-" * 80 + "\n")
+                        
+                        for col in cambio['before'].keys():
+                            f.write(f"  Campo: {col}\n")
+                            f.write(f"    ANTES: {cambio['before'][col]}\n")
+                            f.write(f"    AHORA: {cambio['after'][col]}\n")
+                        f.write("\n")
+            
+            print(f"Log guardado en: {log_file.absolute()}")
     
     input("\nPresione ENTER para salir...")
 
